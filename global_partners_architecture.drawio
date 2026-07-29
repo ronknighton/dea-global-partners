@@ -1,0 +1,96 @@
+<mxfile host="Electron" pages="2">
+  <diagram name="Data Pipeline" id="page1">
+    <mxGraphModel dx="912" dy="543" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="mLdamoF_eFlHf3jdpK0h-2" edge="1" parent="1" source="extract" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;startArrow=block;startFill=1;endArrow=block;endFill=1;" target="ssm" value="Checkpoint Read/Write">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rds" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="RDS SQL Server&#xa;(source, encrypted, SG restricted to dev IP)" vertex="1">
+          <mxGeometry height="70" width="240" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ssm" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="SSM Parameter Store&#xa;(last extracted checkpoint timestamp)" vertex="1">
+          <mxGeometry height="70" width="220" x="440" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="extract" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Glue ETL (PySpark)&#xa;Incremental extract: JDBC WHERE creation_time_utc &gt; checkpoint" vertex="1">
+          <mxGeometry height="80" width="240" x="40" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="raw" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="S3 raw/&#xa;(Bronze, partitioned by dt=ingestion date)" vertex="1">
+          <mxGeometry height="70" width="240" x="40" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="transform" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Glue ETL (PySpark)&#xa;Clean, standardize, join order_items + order_item_options + date_dim" vertex="1">
+          <mxGeometry height="90" width="240" x="40" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="processed" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="S3 processed/&#xa;(Silver, cleaned and typed)" vertex="1">
+          <mxGeometry height="70" width="240" x="40" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="aggregate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Glue ETL (PySpark)&#xa;Compute CLV (daily grain), RFM segments, churn indicators, sales trends, loyalty, location, discount metrics" vertex="1">
+          <mxGeometry height="110" width="240" x="40" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="marts" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="S3 marts/&#xa;(Gold, CLV / RFM / segment tables)" vertex="1">
+          <mxGeometry height="70" width="240" x="40" y="790" as="geometry" />
+        </mxCell>
+        <mxCell id="athena" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Athena&#xa;CTAS / direct query" vertex="1">
+          <mxGeometry height="60" width="240" x="40" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="quicksight" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="QuickSight&#xa;Six dashboards" vertex="1">
+          <mxGeometry height="60" width="220" x="320" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="rds" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="extract">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="extract" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="raw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="raw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="transform">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="transform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="processed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="processed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="aggregate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="aggregate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="marts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="marts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="athena">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="athena" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" target="quicksight">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Orchestration and Support" id="page2">
+    <mxGraphModel dx="900" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="gha" value="GitHub Actions&#xa;CI: lint + pytest/chispa. CD: deploy Glue scripts via OIDC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="190" y="40" width="240" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="gw" value="Glue Workflow&#xa;Native scheduled trigger (daily cron). Orchestrates extract/transform/aggregate jobs, retry + failure reload on error" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="190" y="180" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="sm" value="Secrets Manager&#xa;Stores RDS SQL Server credentials" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="40" y="330" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="gdc" value="Glue Data Catalog + Crawler&#xa;Registers schema for Athena" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="340" y="330" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="oe1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="gha" target="gw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="oe3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="gw" target="sm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="oe4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="gw" target="gdc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
