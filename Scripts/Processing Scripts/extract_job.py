@@ -51,12 +51,14 @@ ssm = boto3.client("ssm", region_name=REGION)
 # On the very first run, the parameter won't exist yet -- fall back to a
 # date far enough in the past to capture the entire historical dataset.
 
+
 def get_checkpoint():
     try:
         response = ssm.get_parameter(Name=CHECKPOINT_PARAM)
         return response["Parameter"]["Value"]
     except ssm.exceptions.ParameterNotFound:
         return "1900-01-01T00:00:00.000Z"
+
 
 def set_checkpoint(new_value: str):
     ssm.put_parameter(
@@ -65,6 +67,7 @@ def set_checkpoint(new_value: str):
         Type="String",
         Overwrite=True,
     )
+
 
 checkpoint = get_checkpoint()
 print(f"Using checkpoint: {checkpoint}")
@@ -103,7 +106,9 @@ print(f"order_items: {order_items_count} new rows since checkpoint")
 
 if order_items_count > 0:
     order_items_df = order_items_df.coalesce(1)
-    order_items_dyf = DynamicFrame.fromDF(order_items_df, glueContext, "order_items_dyf")
+    order_items_dyf = DynamicFrame.fromDF(
+        order_items_df, glueContext, "order_items_dyf"
+    )
     glueContext.write_dynamic_frame.from_options(
         frame=order_items_dyf,
         connection_type="s3",
@@ -174,9 +179,7 @@ date_dim_dyf = DynamicFrame.fromDF(date_dim_df, glueContext, "date_dim_dyf")
 glueContext.write_dynamic_frame.from_options(
     frame=date_dim_dyf,
     connection_type="s3",
-    connection_options={
-        "path": f"s3://{S3_BUCKET}/raw/date_dim/dt={ingestion_date}/"
-    },
+    connection_options={"path": f"s3://{S3_BUCKET}/raw/date_dim/dt={ingestion_date}/"},
     format="parquet",
 )
 

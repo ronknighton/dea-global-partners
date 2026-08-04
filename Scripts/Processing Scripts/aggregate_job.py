@@ -73,12 +73,13 @@ def with_calendar_attrs(df, date_col: str):
     rather than losing every calendar dimension.
     """
     df = (
-        df
-        .withColumn("year", F.year(date_col))
+        df.withColumn("year", F.year(date_col))
         .withColumn("month", F.month(date_col))
         .withColumn("week", F.weekofyear(date_col))
         .withColumn("day_of_week", F.date_format(date_col, "EEEE"))
-        .withColumn("is_weekend", F.dayofweek(date_col).isin(1, 7))  # Spark: 1=Sun, 7=Sat
+        .withColumn(
+            "is_weekend", F.dayofweek(date_col).isin(1, 7)
+        )  # Spark: 1=Sun, 7=Sat
     )
     df = df.join(
         date_dim.select(
@@ -105,15 +106,15 @@ def with_calendar_attrs(df, date_col: str):
 # the same root cause.
 
 options_revenue = (
-    order_item_options
-    .withColumn("option_revenue", F.col("option_price") * F.col("option_quantity"))
+    order_item_options.withColumn(
+        "option_revenue", F.col("option_price") * F.col("option_quantity")
+    )
     .groupBy("order_id", "lineitem_id")
     .agg(F.sum("option_revenue").alias("options_revenue"))
 )
 
 line_items_with_revenue = (
-    order_items
-    .withColumn("item_revenue", F.col("item_price") * F.col("item_quantity"))
+    order_items.withColumn("item_revenue", F.col("item_price") * F.col("item_quantity"))
     .join(options_revenue, on=["order_id", "lineitem_id"], how="left")
     .withColumn("options_revenue", F.coalesce(F.col("options_revenue"), F.lit(0.0)))
     .withColumn("total_revenue", F.col("item_revenue") + F.col("options_revenue"))
@@ -153,8 +154,7 @@ line_items_with_revenue = (
 NON_INDIVIDUAL_THRESHOLD = 500
 
 customer_volume = (
-    line_items_with_revenue
-    .filter(F.col("user_id").isNotNull())
+    line_items_with_revenue.filter(F.col("user_id").isNotNull())
     .groupBy("user_id")
     .agg(F.count("*").alias("total_line_items"))
     .withColumn(
@@ -165,8 +165,10 @@ customer_volume = (
 )
 
 flagged_count = customer_volume.filter(F.col("is_likely_non_individual")).count()
-print(f"is_likely_non_individual: flagged {flagged_count} of "
-      f"{customer_volume.count()} customers (threshold: >{NON_INDIVIDUAL_THRESHOLD} line items)")
+print(
+    f"is_likely_non_individual: flagged {flagged_count} of "
+    f"{customer_volume.count()} customers (threshold: >{NON_INDIVIDUAL_THRESHOLD} line items)"
+)
 
 # ---------------------------------------------------------------------------
 # Mart: clv_daily
@@ -190,8 +192,7 @@ try:
     print(f"clv_daily: excluding {null_user_count} line items with a null user_id")
 
     clv_base = (
-        line_items_with_revenue
-        .filter(F.col("user_id").isNotNull())
+        line_items_with_revenue.filter(F.col("user_id").isNotNull())
         .withColumn("order_date", F.to_date("creation_time_utc"))
         .groupBy("user_id", "order_date")
         .agg(F.sum("total_revenue").alias("daily_revenue"))
@@ -206,18 +207,23 @@ try:
     clv_daily = clv_base.withColumn(
         "cumulative_clv", F.sum("daily_revenue").over(customer_date_window)
     )
-    clv_daily = with_calendar_attrs(clv_daily, "order_date").select(
-        "user_id",
-        "order_date",
-        "daily_revenue",
-        "cumulative_clv",
-        "year",
-        "month",
-        "week",
-        "day_of_week",
-        "is_weekend",
-        "is_holiday",
-    ).join(customer_volume, on="user_id", how="left").coalesce(1)
+    clv_daily = (
+        with_calendar_attrs(clv_daily, "order_date")
+        .select(
+            "user_id",
+            "order_date",
+            "daily_revenue",
+            "cumulative_clv",
+            "year",
+            "month",
+            "week",
+            "day_of_week",
+            "is_weekend",
+            "is_holiday",
+        )
+        .join(customer_volume, on="user_id", how="left")
+        .coalesce(1)
+    )
 
     clv_daily.write.mode("overwrite").parquet(f"s3://{S3_BUCKET}/marts/clv_daily/")
     print(f"clv_daily: wrote {clv_daily.count()} rows to marts/")
@@ -239,16 +245,19 @@ except Exception as e:
 # anchor recency to the actual current date instead.
 
 try:
-    reference_date = order_items.select(F.max(F.to_date("creation_time_utc"))).first()[0]
+    reference_date = order_items.select(F.max(F.to_date("creation_time_utc"))).first()[
+        0
+    ]
     print(f"customer_segments_rfm: using reference date {reference_date}")
 
     customer_rfm_base = (
-        line_items_with_revenue
-        .filter(F.col("user_id").isNotNull())
+        line_items_with_revenue.filter(F.col("user_id").isNotNull())
         .withColumn("order_date", F.to_date("creation_time_utc"))
         .groupBy("user_id")
         .agg(
-            F.datediff(F.lit(reference_date), F.max("order_date")).alias("recency_days"),
+            F.datediff(F.lit(reference_date), F.max("order_date")).alias(
+                "recency_days"
+            ),
             F.countDistinct("order_id").alias("frequency"),
             F.sum("total_revenue").alias("monetary"),
         )
@@ -266,8 +275,9 @@ try:
     monetary_window = Window.orderBy(F.col("monetary").asc())
 
     customer_rfm = (
-        customer_rfm_base
-        .withColumn("recency_score", 6 - F.ntile(5).over(recency_window))
+        customer_rfm_base.withColumn(
+            "recency_score", 6 - F.ntile(5).over(recency_window)
+        )
         .withColumn("frequency_score", F.ntile(5).over(frequency_window))
         .withColumn("monetary_score", F.ntile(5).over(monetary_window))
     )
@@ -279,11 +289,12 @@ try:
     # anyone in the bottom frequency quintile.
 
     customer_segments_rfm = (
-        customer_rfm
-        .withColumn(
+        customer_rfm.withColumn(
             "segment",
             F.when(
-                (F.col("recency_score") >= 4) & (F.col("frequency_score") >= 4) & (F.col("monetary_score") >= 4),
+                (F.col("recency_score") >= 4)
+                & (F.col("frequency_score") >= 4)
+                & (F.col("monetary_score") >= 4),
                 "VIP",
             )
             .when(
@@ -291,7 +302,8 @@ try:
                 "New",
             )
             .when(
-                (F.col("recency_score") <= 2) & ((F.col("frequency_score") >= 3) | (F.col("monetary_score") >= 3)),
+                (F.col("recency_score") <= 2)
+                & ((F.col("frequency_score") >= 3) | (F.col("monetary_score") >= 3)),
                 "Churn Risk",
             )
             .otherwise("Regular"),
@@ -300,8 +312,12 @@ try:
         .coalesce(1)
     )
 
-    customer_segments_rfm.write.mode("overwrite").parquet(f"s3://{S3_BUCKET}/marts/customer_segments_rfm/")
-    print(f"customer_segments_rfm: wrote {customer_segments_rfm.count()} rows to marts/")
+    customer_segments_rfm.write.mode("overwrite").parquet(
+        f"s3://{S3_BUCKET}/marts/customer_segments_rfm/"
+    )
+    print(
+        f"customer_segments_rfm: wrote {customer_segments_rfm.count()} rows to marts/"
+    )
     metric_results["customer_segments_rfm"] = "success"
 except Exception as e:
     print(f"ERROR: customer_segments_rfm failed -- {e}")
@@ -339,14 +355,15 @@ except Exception as e:
 
 try:
     if customer_rfm_base is None:
-        raise RuntimeError("customer_rfm_base unavailable -- customer_segments_rfm must succeed first")
+        raise RuntimeError(
+            "customer_rfm_base unavailable -- customer_segments_rfm must succeed first"
+        )
 
     ACTIVE_THRESHOLD_DAYS = 30
     CHURNED_THRESHOLD_DAYS = 90
 
     customer_order_pattern = (
-        line_items_with_revenue
-        .filter(F.col("user_id").isNotNull())
+        line_items_with_revenue.filter(F.col("user_id").isNotNull())
         .withColumn("order_date", F.to_date("creation_time_utc"))
         .groupBy("user_id")
         .agg(
@@ -358,14 +375,14 @@ try:
             "avg_days_between_orders",
             F.when(
                 F.col("distinct_order_days") > 1,
-                F.datediff("last_order_date", "first_order_date") / (F.col("distinct_order_days") - 1),
+                F.datediff("last_order_date", "first_order_date")
+                / (F.col("distinct_order_days") - 1),
             ),  # null otherwise -- one-time customers have no cadence
         )
     )
 
     churn_risk = (
-        customer_rfm_base
-        .join(customer_order_pattern, on="user_id", how="left")
+        customer_rfm_base.join(customer_order_pattern, on="user_id", how="left")
         .withColumn(
             "risk_tier",
             F.when(F.col("recency_days") <= ACTIVE_THRESHOLD_DAYS, "Active")
@@ -418,8 +435,7 @@ except Exception as e:
 
 try:
     sales_trends_base = (
-        line_items_with_revenue
-        .withColumn("order_date", F.to_date("creation_time_utc"))
+        line_items_with_revenue.withColumn("order_date", F.to_date("creation_time_utc"))
         .groupBy("order_date")
         .agg(
             F.sum("total_revenue").alias("total_revenue"),
@@ -428,20 +444,26 @@ try:
         .withColumn("avg_order_value", F.col("total_revenue") / F.col("order_count"))
     )
 
-    sales_trends = with_calendar_attrs(sales_trends_base, "order_date").select(
-        "order_date",
-        "total_revenue",
-        "order_count",
-        "avg_order_value",
-        "year",
-        "month",
-        "week",
-        "day_of_week",
-        "is_weekend",
-        "is_holiday",
-    ).coalesce(1)
+    sales_trends = (
+        with_calendar_attrs(sales_trends_base, "order_date")
+        .select(
+            "order_date",
+            "total_revenue",
+            "order_count",
+            "avg_order_value",
+            "year",
+            "month",
+            "week",
+            "day_of_week",
+            "is_weekend",
+            "is_holiday",
+        )
+        .coalesce(1)
+    )
 
-    sales_trends.write.mode("overwrite").parquet(f"s3://{S3_BUCKET}/marts/sales_trends/")
+    sales_trends.write.mode("overwrite").parquet(
+        f"s3://{S3_BUCKET}/marts/sales_trends/"
+    )
     print(f"sales_trends: wrote {sales_trends.count()} rows to marts/")
     metric_results["sales_trends"] = "success"
 except Exception as e:
@@ -471,8 +493,7 @@ except Exception as e:
 
 try:
     loyalty_impact_base = (
-        line_items_with_revenue
-        .join(customer_volume, on="user_id", how="left")
+        line_items_with_revenue.join(customer_volume, on="user_id", how="left")
         .withColumn(
             # null user_id -> not flaggable, treat as False
             "is_likely_non_individual",
@@ -488,7 +509,9 @@ try:
         .coalesce(1)
     )
 
-    loyalty_impact_base.write.mode("overwrite").parquet(f"s3://{S3_BUCKET}/marts/loyalty_impact/")
+    loyalty_impact_base.write.mode("overwrite").parquet(
+        f"s3://{S3_BUCKET}/marts/loyalty_impact/"
+    )
     print(f"loyalty_impact: wrote {loyalty_impact_base.count()} rows to marts/")
     metric_results["loyalty_impact"] = "success"
 except Exception as e:
@@ -514,17 +537,20 @@ except Exception as e:
 # totals) without forcing a row split everywhere.
 
 try:
-    location_base = line_items_with_revenue.join(customer_volume, on="user_id", how="left")
+    location_base = line_items_with_revenue.join(
+        customer_volume, on="user_id", how="left"
+    )
 
     location_performance = (
-        location_base
-        .groupBy("restaurant_id")
+        location_base.groupBy("restaurant_id")
         .agg(
             F.sum("total_revenue").alias("total_revenue"),
             F.countDistinct("order_id").alias("order_count"),
             F.countDistinct("user_id").alias("distinct_customers"),
             F.sum(
-                F.when(F.col("is_likely_non_individual"), F.col("total_revenue")).otherwise(0.0)
+                F.when(
+                    F.col("is_likely_non_individual"), F.col("total_revenue")
+                ).otherwise(0.0)
             ).alias("flagged_account_revenue"),
             F.countDistinct(
                 F.when(F.col("is_likely_non_individual"), F.col("order_id"))
@@ -538,7 +564,9 @@ try:
         .coalesce(1)
     )
 
-    location_performance.write.mode("overwrite").parquet(f"s3://{S3_BUCKET}/marts/location_performance/")
+    location_performance.write.mode("overwrite").parquet(
+        f"s3://{S3_BUCKET}/marts/location_performance/"
+    )
     print(f"location_performance: wrote {location_performance.count()} rows to marts/")
     metric_results["location_performance"] = "success"
 except Exception as e:
@@ -570,8 +598,7 @@ try:
     PRICE_TIER_BOUNDARIES = [0.01, 5.0, 10.0, 20.0]
 
     discount_effectiveness = (
-        line_items_with_revenue
-        .withColumn(
+        line_items_with_revenue.withColumn(
             "price_tier",
             F.when(F.col("item_price") == 0, "Free")
             .when(F.col("item_price") < PRICE_TIER_BOUNDARIES[0], "Free")
@@ -590,8 +617,12 @@ try:
         .coalesce(1)
     )
 
-    discount_effectiveness.write.mode("overwrite").parquet(f"s3://{S3_BUCKET}/marts/discount_effectiveness/")
-    print(f"discount_effectiveness: wrote {discount_effectiveness.count()} rows to marts/")
+    discount_effectiveness.write.mode("overwrite").parquet(
+        f"s3://{S3_BUCKET}/marts/discount_effectiveness/"
+    )
+    print(
+        f"discount_effectiveness: wrote {discount_effectiveness.count()} rows to marts/"
+    )
 
     # Secondary finding (printed, not a separate mart): does an order
     # containing at least one free item associate with higher or lower
@@ -600,31 +631,32 @@ try:
     # statistical claim.
 
     orders_with_free_item = (
-        line_items_with_revenue
-        .filter(F.col("item_price") == 0)
+        line_items_with_revenue.filter(F.col("item_price") == 0)
         .select("order_id")
         .distinct()
     )
 
-    order_totals = (
-        line_items_with_revenue
-        .groupBy("order_id")
-        .agg(F.sum("total_revenue").alias("order_total"))
+    order_totals = line_items_with_revenue.groupBy("order_id").agg(
+        F.sum("total_revenue").alias("order_total")
     )
 
     avg_with_free = (
         order_totals.join(orders_with_free_item, on="order_id", how="inner")
-        .agg(F.avg("order_total")).first()[0]
+        .agg(F.avg("order_total"))
+        .first()[0]
     )
     avg_without_free = (
         order_totals.join(orders_with_free_item, on="order_id", how="left_anti")
-        .agg(F.avg("order_total")).first()[0]
+        .agg(F.avg("order_total"))
+        .first()[0]
     )
     free_item_order_count = orders_with_free_item.count()
 
-    print(f"discount_effectiveness (secondary finding): "
-          f"avg order value WITH a free item ({free_item_order_count} orders) = {avg_with_free:.2f}, "
-          f"avg order value WITHOUT = {avg_without_free:.2f}")
+    print(
+        f"discount_effectiveness (secondary finding): "
+        f"avg order value WITH a free item ({free_item_order_count} orders) = {avg_with_free:.2f}, "
+        f"avg order value WITHOUT = {avg_without_free:.2f}"
+    )
     metric_results["discount_effectiveness"] = "success"
 except Exception as e:
     print(f"ERROR: discount_effectiveness failed -- {e}")

@@ -68,9 +68,11 @@ def check_parse_failures(df, column: str, label: str):
     silently disappear."""
     null_count = df.filter(F.col(column).isNull()).count()
     if null_count > 0:
-        print(f"WARNING: {label} -- {null_count} rows have a null "
-              f"'{column}' after parsing. Investigate before trusting "
-              f"this output downstream.")
+        print(
+            f"WARNING: {label} -- {null_count} rows have a null "
+            f"'{column}' after parsing. Investigate before trusting "
+            f"this output downstream."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -127,16 +129,12 @@ print(f"order_item_options: wrote {order_item_options_df.count()} rows to proces
 date_dim_df = read_raw("date_dim")
 date_dim_df = to_snake_case(date_dim_df)
 
-date_dim_df = date_dim_df.withColumn(
-    "date_key", F.to_date("date_key", "dd-MM-yyyy")
-)
+date_dim_df = date_dim_df.withColumn("date_key", F.to_date("date_key", "dd-MM-yyyy"))
 check_parse_failures(date_dim_df, "date_key", "date_dim")
 
 date_dim_df = date_dim_df.coalesce(1)
 
-date_dim_df.write.mode("overwrite").parquet(
-    f"s3://{S3_BUCKET}/processed/date_dim/"
-)
+date_dim_df.write.mode("overwrite").parquet(f"s3://{S3_BUCKET}/processed/date_dim/")
 print(f"date_dim: wrote {date_dim_df.count()} rows to processed/")
 
 job.commit()
