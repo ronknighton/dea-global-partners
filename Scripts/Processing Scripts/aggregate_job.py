@@ -474,8 +474,9 @@ try:
         line_items_with_revenue
         .join(customer_volume, on="user_id", how="left")
         .withColumn(
+            # null user_id -> not flaggable, treat as False
             "is_likely_non_individual",
-            F.coalesce(F.col("is_likely_non_individual"), F.lit(False)),  # null user_id -> not flaggable, treat as False
+            F.coalesce(F.col("is_likely_non_individual"), F.lit(False)),
         )
         .groupBy("is_loyalty", "is_likely_non_individual")
         .agg(
@@ -523,10 +524,10 @@ try:
             F.countDistinct("order_id").alias("order_count"),
             F.countDistinct("user_id").alias("distinct_customers"),
             F.sum(
-                F.when(F.col("is_likely_non_individual") == True, F.col("total_revenue")).otherwise(0.0)
+                F.when(F.col("is_likely_non_individual"), F.col("total_revenue")).otherwise(0.0)
             ).alias("flagged_account_revenue"),
             F.countDistinct(
-                F.when(F.col("is_likely_non_individual") == True, F.col("order_id"))
+                F.when(F.col("is_likely_non_individual"), F.col("order_id"))
             ).alias("flagged_account_order_count"),
         )
         .withColumn("avg_order_value", F.col("total_revenue") / F.col("order_count"))
