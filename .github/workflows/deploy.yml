@@ -1,0 +1,58 @@
+name: Deploy
+
+# Runs only on merge to main. Deploys the three Glue ETL scripts to S3
+# and updates each Glue job definition to pick up the new code.
+#
+# Authenticates via GitHub's OIDC provider federating to
+# dea-global-partners-github-actions-role -- no long-lived AWS
+# credentials stored in GitHub secrets. Requires the "id-token: write"
+# permission below, which is what lets this workflow request a
+# short-lived OIDC token from GitHub to present to AWS STS.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: dea-global-partners-rhk
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::022868553110:role/dea-global-partners-github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy extract job script
+        run: |
+          aws s3 cp scripts/extract_job.py \
+            s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-extract.py
+          aws glue update-job \
+            --job-name dea-global-partners-extract \
+            --job-update '{"Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-extract.py","PythonVersion":"3"}}'
+
+      - name: Deploy transform job script
+        run: |
+          aws s3 cp scripts/transform_job.py \
+            s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-transform.py
+          aws glue update-job \
+            --job-name dea-global-partners-transform \
+            --job-update '{"Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-transform.py","PythonVersion":"3"}}'
+
+      - name: Deploy aggregate job script
+        run: |
+          aws s3 cp scripts/aggregate_job.py \
+            s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-aggregate.py
+          aws glue update-job \
+            --job-name dea-global-partners-aggregate \
+            --job-update '{"Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-aggregate.py","PythonVersion":"3"}}'
