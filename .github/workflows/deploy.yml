@@ -39,7 +39,7 @@ jobs:
             s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-extract.py
           aws glue update-job \
             --job-name dea-global-partners-extract \
-            --job-update '{"Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-extract.py","PythonVersion":"3"}}'
+            --job-update '{"Role":"arn:aws:iam::022868553110:role/dea-global-partners-glue-extract-role","Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-extract.py","PythonVersion":"3"}}'
 
       - name: Deploy transform job script
         run: |
@@ -47,7 +47,7 @@ jobs:
             s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-transform.py
           aws glue update-job \
             --job-name dea-global-partners-transform \
-            --job-update '{"Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-transform.py","PythonVersion":"3"}}'
+            --job-update '{"Role":"arn:aws:iam::022868553110:role/dea-global-partners-glue-transform-role","Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-transform.py","PythonVersion":"3"}}'
 
       - name: Deploy aggregate job script
         run: |
@@ -55,4 +55,4 @@ jobs:
             s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-aggregate.py
           aws glue update-job \
             --job-name dea-global-partners-aggregate \
-            --job-update '{"Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-aggregate.py","PythonVersion":"3"}}'
+            --job-update '{"Role":"arn:aws:iam::022868553110:role/dea-global-partners-glue-aggregate-role","Command":{"Name":"glueetl","ScriptLocation":"s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-aggregate.py","PythonVersion":"3"}}'
