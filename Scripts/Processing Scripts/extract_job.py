@@ -14,7 +14,6 @@ import sys
 import boto3
 from datetime import datetime, timezone
 
-from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
 from awsglue.context import GlueContext
 from awsglue.job import Job
