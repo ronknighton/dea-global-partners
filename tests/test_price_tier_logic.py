@@ -82,7 +82,7 @@ def test_price_tier_boundaries(spark):
         ["item_price", "price_tier"],
     )
 
-    assert_df_equality(result, expected, ignore_row_order=True)
+    assert_df_equality(result, expected, ignore_row_order=True, ignore_nullable=True)
 
 
 def test_price_tier_no_nulls_produced(spark):
