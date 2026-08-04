@@ -35,7 +35,7 @@ jobs:
 
       - name: Deploy extract job script
         run: |
-          aws s3 cp scripts/extract_job.py \
+          aws s3 cp "Scripts/Processing Scripts/extract_job.py" \
             s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-extract.py
           aws glue update-job \
             --job-name dea-global-partners-extract \
@@ -43,7 +43,7 @@ jobs:
 
       - name: Deploy transform job script
         run: |
-          aws s3 cp scripts/transform_job.py \
+          aws s3 cp "Scripts/Processing Scripts/transform_job.py" \
             s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-transform.py
           aws glue update-job \
             --job-name dea-global-partners-transform \
@@ -51,7 +51,7 @@ jobs:
 
       - name: Deploy aggregate job script
         run: |
-          aws s3 cp scripts/aggregate_job.py \
+          aws s3 cp "Scripts/Processing Scripts/aggregate_job.py" \
             s3://${{ env.S3_BUCKET }}/scripts/dea-global-partners-aggregate.py
           aws glue update-job \
             --job-name dea-global-partners-aggregate \

@@ -25,10 +25,10 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Lint (flake8)
-        run: flake8 scripts/ --max-line-length=120
+        run: flake8 "Scripts/Processing Scripts" --max-line-length=120
 
       - name: Format check (black)
-        run: black --check scripts/
+        run: black --check "Scripts/Processing Scripts"
 
       - name: Run unit tests
         run: pytest tests/ -v
